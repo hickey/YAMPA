@@ -81,18 +81,18 @@ export class PacketDecoder {
    */
   public static async decodeRawPacket(rawData: RawPacketData): Promise<Packet> {
     const { raw_packet, radio = {}, routing = {}, ts } = rawData;
-    
+
     try {
       // Create key store with channel secrets for decryption
       const keyStore = MeshCorePacketDecoder.createKeyStore({
         channelSecrets: Object.values(this.CHANNELS).map(c => c.secret)
       });
-      
+
       // Decode the packet using meshcore-decoder with decryption
       const decoded = MeshCorePacketDecoder.decode(raw_packet.hex, {
         keyStore
       });
-      
+
       // Transform the decoded data to match our Packet interface
       return {
         ts,
@@ -112,8 +112,8 @@ export class PacketDecoder {
           snr: radio.snr || 0,
         },
         routing: {
-          path_len: decoded.pathLength,
-          path: decoded.path ? decoded.path.join('') : '',
+          path_len: decoded.pathLength || 0,
+          path: (decoded.pathLength > 0 && decoded.path) ? decoded.path.join('') : '',
         },
         payload: {
           hex: decoded.payload.raw,
@@ -122,7 +122,7 @@ export class PacketDecoder {
       };
     } catch (error) {
       console.error('Failed to decode packet:', error);
-      
+
       // Return a basic packet structure if decoding fails
       return {
         ts,
@@ -183,7 +183,7 @@ export class PacketDecoder {
         } else {
           channelName = await this.getChannelName(payload.channelHash);
         }
-        
+
         result.group_text = {
           decrypted: decrypted,
           channel_name: channelName,
@@ -258,7 +258,7 @@ export class PacketDecoder {
         channelName = Object.keys(this.CHANNELS)[index];
       }
     });
-    
+
     return channelName || ('Unknown ' + channelHash);
   }
 }

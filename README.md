@@ -11,7 +11,8 @@ This repository contains:
 - A React frontend UI.
 - A Python WebSocket server implementation in `server-pymc_core/`.
 
-The frontend expects a WebSocket endpoint that streams packet events as JSON.
+The frontend expects a WebSocket endpoint that streams packet events as JSON
+or a WebSocket stream from a MQTT server.
 
 ## Server (WebSocket packet stream)
 
@@ -49,6 +50,25 @@ For devices flashed with **MeshCore USB Serial Companion** firmware (e.g. Heltec
 | `--serial-port` | `/dev/ttyUSB0` | Serial port for the companion device |
 | `--host` | `localhost` | WebSocket server bind address |
 | `--port` | `8080` | WebSocket server port |
+
+## MQTT Server
+
+Connecting to a MQTT server requires that a number of variables be defined
+to specify the server and credentials to connect with. The topic to
+subscribe to is also specified with an environmental variable but it will
+default to `meshcore/+/+/packets` if not specified.
+
+```shell
+MQTT_ENABLE=1
+MQTT_HOST=mqtt.server
+MQTT_PORT=8083                        # default value
+MQTT_USERNAME=user
+MQTT_PASSWORD=pass
+MQTT_TOPIC=meshcore/+/+/packets       # default value
+```
+
+The topic is set to receive packets sent with `meshcoretomqtt` script.
+`meshcoretomqtt` can be found at https://github.com/Cisien/meshcoretomqtt.
 
 ## Frontend
 

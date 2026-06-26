@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Packet, DiscoveredNode } from './types';
-import { StreamService, ConnectionStatus } from './services/streamService';
+import { StreamService, ConnectionStatus, ConnectionMode } from './services/streamService';
 import { PacketList } from './components/PacketList';
 import { PacketDetails } from './components/PacketDetails';
 import { NodeList } from './components/NodeList';
@@ -16,7 +16,7 @@ type ViewMode = 'analyzer' | 'channels' | 'map';
 const App: React.FC = () => {
   const [packets, setPackets] = useState<Packet[]>([]);
   const [totalPacketCount, setTotalPacketCount] = useState(0);
-  
+
   // View State
   const [viewMode, setViewMode] = useState<ViewMode>('analyzer');
 
@@ -31,13 +31,18 @@ const App: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [isSimulation, setIsSimulation] = useState(false);
-  
+  const [mqttBrokerUrl, setMqttBrokerUrl] = useState(`ws://${import.meta.env.MQTT_HOST || 'localhost'}:${import.meta.env.MQTT_PORT || '8083'}/mqtt`);
+  const [mqttTopic, setMqttTopic] = useState(import.meta.env.MQTT_TOPIC || 'meshcore/+/+/packets');
+  const [showConnectionSettings, setShowConnectionSettings] = useState(false);
+
+  const isMqttEnabled = !!import.meta.env.MQTT_ENABLE;
+
   const streamServiceRef = useRef<StreamService | null>(null);
 
   useEffect(() => {
     // Initialize stream service
     streamServiceRef.current = new StreamService();
-    
+
     // Subscribe to Data
     const unsubscribeData = streamServiceRef.current.subscribe((packet) => {
       // 1. Packet Management
@@ -54,7 +59,7 @@ const App: React.FC = () => {
         setNodes((prevNodes) => {
           const newMap = new Map(prevNodes);
           const existing: DiscoveredNode | undefined = newMap.get(nodeInfo.id!);
-          
+
           newMap.set(nodeInfo.id!, {
             id: nodeInfo.id!,
             name: nodeInfo.name!,
@@ -98,22 +103,41 @@ const App: React.FC = () => {
     }
   };
 
+  const handleConnectionModeChange = (mode: ConnectionMode) => {
+    if (streamServiceRef.current) {
+      streamServiceRef.current.setConnectionMode(mode);
+      setIsPaused(false);
+    }
+  };
+
   const toggleSimulation = () => {
-      if (streamServiceRef.current) {
-          const newMode = !isSimulation;
-          setIsSimulation(newMode);
-          streamServiceRef.current.setSimulationMode(newMode);
-          // Reset paused state when switching modes usually feels better
-          setIsPaused(false); 
-          streamServiceRef.current.resume();
+    if (streamServiceRef.current) {
+      const newMode = !isSimulation;
+      setIsSimulation(newMode);
+      handleConnectionModeChange(newMode ? 'simulation' : (isMqttEnabled ? 'mqtt' : 'websocket'));
+    }
+  };
+
+  const handleMqttConfigSave = () => {
+    if (streamServiceRef.current) {
+      streamServiceRef.current.setMqttConfig({
+        brokerUrl: mqttBrokerUrl,
+        topicPattern: mqttTopic,
+      });
+      // Reconnect if currently in MQTT mode
+      if (isMqttEnabled && !isSimulation) {
+        streamServiceRef.current.stop();
+        streamServiceRef.current.start();
       }
+      setShowConnectionSettings(false);
+    }
   };
 
   const clearPackets = () => {
     setPackets([]);
     setTotalPacketCount(0);
     setSelectedPacket(null);
-    setNodes(new Map()); 
+    setNodes(new Map());
     // We don't necessarily clear channels derived from packets since packets are cleared
   };
 
@@ -140,17 +164,17 @@ const App: React.FC = () => {
           const info = p.decoded.group_text;
           const id = info.channel_name;
           const name = info.channel_name;
-          
+
           if (!channelMap.has(id)) {
-              channelMap.set(id, { 
-                  id, 
-                  name, 
-                  count: 0, 
-                  lastActivity: 0, 
-                  isEncrypted: false 
+              channelMap.set(id, {
+                  id,
+                  name,
+                  count: 0,
+                  lastActivity: 0,
+                  isEncrypted: false
               });
           }
-          
+
           const ch = channelMap.get(id)!;
           ch.count++;
           ch.lastActivity = Math.max(ch.lastActivity, p.ts);
@@ -161,9 +185,9 @@ const App: React.FC = () => {
   }, [packets]);
 
   // 2. Filtered Packets for Analyzer
-  const filteredPacketsAnalyzer = selectedNodeId 
+  const filteredPacketsAnalyzer = selectedNodeId
     ? packets.filter(p => {
-        return (p.decoded.group_text?.sender_name === selectedNodeId) || 
+        return (p.decoded.group_text?.sender_name === selectedNodeId) ||
                (p.decoded.advert?.appdata.node_name === selectedNodeId);
       })
     : packets;
@@ -190,9 +214,9 @@ const App: React.FC = () => {
   const getStatusIndicator = () => {
       if (isPaused) return { color: 'bg-yellow-500', text: 'Paused' };
       if (isSimulation) return { color: 'bg-purple-500', text: 'Simulation' };
-      
+
       switch (connectionStatus) {
-          case 'connected': return { color: 'bg-green-500 animate-pulse', text: 'Live' };
+          case 'connected': return { color: 'bg-green-500 animate-pulse', text: isMqttEnabled ? 'MQTT Live' : 'WS Live' };
           case 'connecting': return { color: 'bg-yellow-500', text: 'Connecting...' };
           case 'error': return { color: 'bg-red-500', text: 'Error' };
           default: return { color: 'bg-slate-500', text: 'Offline' };
@@ -207,7 +231,7 @@ const App: React.FC = () => {
       <header className="flex-none h-16 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-6 shadow-md z-10 gap-4">
         {/* Logo and Status */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className={`p-2 rounded-lg transition-colors ${isSimulation ? 'bg-purple-900/50' : 'bg-blue-600'}`}>
+          <div className={`p-2 rounded-lg transition-colors ${isSimulation ? 'bg-purple-900/50' : isMqttEnabled ? 'bg-green-600' : 'bg-blue-600'}`}>
             <Radio className={`w-6 h-6 ${isSimulation ? 'text-purple-400' : 'text-white'}`} />
           </div>
           <div className="mr-6">
@@ -220,21 +244,21 @@ const App: React.FC = () => {
 
           {/* View Switcher */}
           <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700">
-             <button 
+             <button
                 onClick={() => setViewMode('analyzer')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'analyzer' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
              >
                 <Activity className="w-4 h-4" />
                 Packets
              </button>
-             <button 
+             <button
                 onClick={() => setViewMode('channels')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'channels' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
              >
                 <MessageCircle className="w-4 h-4" />
                 Channels
              </button>
-             <button 
+             <button
                 onClick={() => setViewMode('map')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'map' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
              >
@@ -263,14 +287,14 @@ const App: React.FC = () => {
         {/* Right Controls */}
         <div className="flex items-center gap-4 w-auto shrink-0 justify-end">
           <div className="flex gap-2">
-            
+
             {/* Simulation Toggle */}
             <button
               onClick={toggleSimulation}
               className={`
                 flex items-center gap-2 px-3 py-2 rounded-md transition-all border
-                ${isSimulation 
-                    ? 'bg-purple-900/30 border-purple-500/50 text-purple-300 hover:bg-purple-900/50' 
+                ${isSimulation
+                    ? 'bg-purple-900/30 border-purple-500/50 text-purple-300 hover:bg-purple-900/50'
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'
                 }
               `}
@@ -280,16 +304,27 @@ const App: React.FC = () => {
                 <span className="text-xs font-medium hidden sm:inline">{isSimulation ? 'Simulating' : 'Simulate'}</span>
             </button>
 
+            {/* MQTT Settings Button (visible when MQTT is enabled) */}
+            {isMqttEnabled && (
+              <button
+                onClick={() => setShowConnectionSettings(!showConnectionSettings)}
+                className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                title="MQTT Settings"
+              >
+                ⚙
+              </button>
+            )}
+
             <div className="w-px h-8 bg-slate-700 mx-2"></div>
 
-            <button 
+            <button
               onClick={togglePause}
               className={`p-2 rounded-md transition-colors ${isPaused ? 'bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}
               title={isPaused ? "Resume Stream" : "Pause Stream"}
             >
               {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
             </button>
-            <button 
+            <button
               onClick={clearPackets}
               className="p-2 bg-slate-700 hover:bg-red-900/30 hover:text-red-400 text-slate-200 rounded-md transition-colors"
               title="Clear Buffer"
@@ -300,16 +335,44 @@ const App: React.FC = () => {
         </div>
       </header>
 
+      {/* MQTT Settings Panel */}
+      {showConnectionSettings && isMqttEnabled && (
+        <div className="flex-none bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center gap-4 z-10">
+          <label className="text-xs text-slate-400">Broker URL:</label>
+          <input
+            type="text"
+            value={mqttBrokerUrl}
+            onChange={(e) => setMqttBrokerUrl(e.target.value)}
+            className="flex-1 max-w-xs px-2 py-1 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:border-green-500"
+            placeholder="ws://broker:9001/mqtt"
+          />
+          <label className="text-xs text-slate-400">Topic:</label>
+          <input
+            type="text"
+            value={mqttTopic}
+            onChange={(e) => setMqttTopic(e.target.value)}
+            className="flex-1 max-w-xs px-2 py-1 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:border-green-500"
+            placeholder="meshcore/+/packets"
+          />
+          <button
+            onClick={handleMqttConfigSave}
+            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors"
+          >
+            Apply
+          </button>
+        </div>
+      )}
+
       {/* Main Content Grid */}
       <div className="flex-1 flex overflow-hidden relative">
-        
+
         {/* Column 1: Left Sidebar (Context sensitive) */}
         <div className="w-64 flex-none border-r border-slate-700 hidden md:flex flex-col bg-slate-900">
            {viewMode === 'analyzer' || viewMode === 'map' ? (
-               <NodeList 
-                 nodes={Array.from(nodes.values())} 
-                 selectedNodeId={selectedNodeId} 
-                 onSelectNode={handleNodeSelect} 
+               <NodeList
+                 nodes={Array.from(nodes.values())}
+                 selectedNodeId={selectedNodeId}
+                 onSelectNode={handleNodeSelect}
                />
            ) : (
                <ChannelList
@@ -322,7 +385,7 @@ const App: React.FC = () => {
 
         {/* Column 2: Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-slate-900/50 relative">
-          
+
           {viewMode === 'analyzer' && (
             <>
               {selectedNodeId && (
@@ -332,9 +395,9 @@ const App: React.FC = () => {
                 </div>
               )}
               <div className="flex-1 relative min-h-0">
-                <PacketList 
-                  packets={filteredPacketsAnalyzer} 
-                  onSelect={handlePacketSelect} 
+                <PacketList
+                  packets={filteredPacketsAnalyzer}
+                  onSelect={handlePacketSelect}
                   selectedId={selectedPacket?.ts}
                 />
               </div>
@@ -343,7 +406,7 @@ const App: React.FC = () => {
 
           {viewMode === 'channels' && (
               selectedChannelId ? (
-                <ChannelChat 
+                <ChannelChat
                     packets={filteredPacketsChannel}
                     onSelectPacket={handlePacketSelect}
                     channelName={channels.find(c => c.id === selectedChannelId)?.name || selectedChannelId}
@@ -357,7 +420,7 @@ const App: React.FC = () => {
           )}
 
           {viewMode === 'map' && (
-             <NodeMap 
+             <NodeMap
                 nodes={Array.from(nodes.values())}
                 selectedNodeId={selectedNodeId}
                 onSelectNode={(id) => {
@@ -370,7 +433,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Column 3: Details Panel */}
-        <div 
+        <div
           className={`
             flex-none bg-slate-800 flex flex-col transition-all duration-300 ease-in-out overflow-hidden
             ${isDetailsVisible ? 'w-[400px] border-l border-slate-700' : 'w-0 border-l-0'}
@@ -378,14 +441,14 @@ const App: React.FC = () => {
         >
           <div className="w-[400px] h-full flex flex-col">
             {showPacketDetails && selectedPacket ? (
-              <PacketDetails 
-                packet={selectedPacket} 
-                onClose={() => setSelectedPacket(null)} 
+              <PacketDetails
+                packet={selectedPacket}
+                onClose={() => setSelectedPacket(null)}
               />
             ) : showNodeDetails && selectedNodeId ? (
-               <NodeDetails 
-                  node={nodes.get(selectedNodeId)!} 
-                  packets={filteredPacketsAnalyzer} 
+               <NodeDetails
+                  node={nodes.get(selectedNodeId)!}
+                  packets={filteredPacketsAnalyzer}
                   onClose={() => setSelectedNodeId(null)}
                />
             ) : null}

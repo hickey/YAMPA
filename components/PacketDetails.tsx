@@ -10,7 +10,7 @@ interface PacketDetailsProps {
 
 export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose }) => {
   const date = new Date(packet.ts * 1000);
-  
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -18,10 +18,10 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
   // Helper to visualize path bytes
   const renderPathChain = (path: string) => {
     if (!path) return <span className="text-slate-500 italic">No routing path</span>;
-    
+
     // Split hex string into bytes (2 chars)
     const hops = path.match(/.{1,2}/g) || [];
-    
+
     return (
       <div className="flex flex-wrap gap-2 items-center mt-2">
         {hops.map((hop, index) => (
@@ -58,7 +58,7 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
 
       {/* Content Scrollable */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        
+
         {/* Meta Info */}
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700">
@@ -155,7 +155,7 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
                  <span>Type: {packet.packet.route_type_name}</span>
                  <span>Hops: {packet.routing.path_len}</span>
                </div>
-               
+
                {/* Visual Chain */}
                {renderPathChain(packet.routing.path)}
 
@@ -172,7 +172,7 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
                 <Hash className="w-4 h-4 text-slate-400" />
                 Raw Packet
             </h3>
-            <button 
+            <button
               onClick={() => copyToClipboard(packet.raw_packet.hex)}
               className="p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-white"
               title="Copy Hex"

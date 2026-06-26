@@ -8,7 +8,7 @@ export const formatPath = (path: string): string => {
 
 export const extractNodeFromPacket = (packet: Packet): Partial<DiscoveredNode> | null => {
   const { decoded, ts, radio } = packet;
-  
+
   // Case 1: Advert Packet (Rich info)
   if (decoded.advert && decoded.advert.appdata.node_name) {
     return {
