@@ -54,14 +54,13 @@ For devices flashed with **MeshCore USB Serial Companion** firmware (e.g. Heltec
 ## MQTT Server
 
 Connecting to a MQTT server requires that a number of variables be defined
-to specify the server and credentials to connect with. The topic to
-subscribe to is also specified with an environmental variable but it will
-default to `meshcore/+/+/packets` if not specified.
+to specify the server and credentials to connect with. The MQTT connection
+is enabled when MQTT_URL is specified otherwise the websocket packet stream
+is used. The topic to subscribe to is also specified with an environmental
+variable but it will default to `meshcore/+/+/packets` if not specified.
 
 ```shell
-MQTT_ENABLE=1
-MQTT_HOST=mqtt.server
-MQTT_PORT=8083                        # default value
+MQTT_URL=ws://broker:8083/mqtt
 MQTT_USERNAME=user
 MQTT_PASSWORD=pass
 MQTT_TOPIC=meshcore/+/+/packets       # default value

@@ -9,7 +9,7 @@ export type MqttConnectionStatus = 'connected' | 'disconnected' | 'connecting' |
 
 export interface MqttConfig {
   brokerUrl: string;       // e.g., ws://broker:9001/mqtt
-  topicPattern: string;    // e.g., meshcore/+/packets
+  topicPattern: string;    // e.g., meshcore/+/+/packets
   username?: string;
   password?: string;
 }

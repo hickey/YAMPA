@@ -26,14 +26,14 @@ export class StreamService {
   // MQTT state
   private mqttService: MqttService | null = null;
   private mqttConfig: MqttConfig = {
-    brokerUrl: `ws://${import.meta.env.MQTT_HOST || 'localhost'}:${import.meta.env.MQTT_PORT || '8083'}/mqtt`,
-    topicPattern: import.meta.env.MQTT_TOPIC || 'meshcore/#',
+    brokerUrl: import.meta.env.MQTT_URL,
+    topicPattern: import.meta.env.MQTT_TOPIC || 'meshcore/+/+/packets',
     username: import.meta.env.MQTT_USERNAME || undefined,
     password: import.meta.env.MQTT_PASSWORD || undefined,
   };
 
   // Mode — default to MQTT if MQTT_ENABLE is set
-  private connectionMode: ConnectionMode = import.meta.env.MQTT_ENABLE ? 'mqtt' : 'websocket';
+  private connectionMode: ConnectionMode = import.meta.env.MQTT_URL ? 'mqtt' : 'websocket';
 
   constructor() {
     this.parseMockData();
@@ -111,8 +111,10 @@ export class StreamService {
   public setSimulationMode(enabled: boolean) {
     if (enabled) {
       this.setConnectionMode('simulation');
-    } else {
+    } else if (this.connectionMode === 'websocket') {
       this.setConnectionMode('websocket');
+    } else if (this.connectionMode === 'mqtt') {
+      this.setConnectionMode('mqtt');
     }
   }
 

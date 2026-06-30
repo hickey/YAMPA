@@ -31,11 +31,11 @@ const App: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [isSimulation, setIsSimulation] = useState(false);
-  const [mqttBrokerUrl, setMqttBrokerUrl] = useState(`ws://${import.meta.env.MQTT_HOST || 'localhost'}:${import.meta.env.MQTT_PORT || '8083'}/mqtt`);
+  const [mqttBrokerUrl, setMqttBrokerUrl] = useState(import.meta.env.MQTT_URL || '');
   const [mqttTopic, setMqttTopic] = useState(import.meta.env.MQTT_TOPIC || 'meshcore/+/+/packets');
   const [showConnectionSettings, setShowConnectionSettings] = useState(false);
 
-  const isMqttEnabled = !!import.meta.env.MQTT_ENABLE;
+  const isMqttEnabled = !!import.meta.env.MQTT_URL;
 
   const streamServiceRef = useRef<StreamService | null>(null);
 
@@ -344,7 +344,7 @@ const App: React.FC = () => {
             value={mqttBrokerUrl}
             onChange={(e) => setMqttBrokerUrl(e.target.value)}
             className="flex-1 max-w-xs px-2 py-1 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:border-green-500"
-            placeholder="ws://broker:9001/mqtt"
+            placeholder="ws://broker:8083/mqtt"
           />
           <label className="text-xs text-slate-400">Topic:</label>
           <input
@@ -352,7 +352,7 @@ const App: React.FC = () => {
             value={mqttTopic}
             onChange={(e) => setMqttTopic(e.target.value)}
             className="flex-1 max-w-xs px-2 py-1 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:border-green-500"
-            placeholder="meshcore/+/packets"
+            placeholder="meshcore/+/+/packets"
           />
           <button
             onClick={handleMqttConfigSave}
