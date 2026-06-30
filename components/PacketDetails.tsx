@@ -10,18 +10,22 @@ interface PacketDetailsProps {
 
 export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose }) => {
   const date = new Date(packet.ts * 1000);
-  
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
   // Helper to visualize path bytes
-  const renderPathChain = (path: string) => {
+  const renderPathChain = (path: string, pathHashSize: number) => {
     if (!path) return <span className="text-slate-500 italic">No routing path</span>;
-    
-    // Split hex string into bytes (2 chars)
-    const hops = path.match(/.{1,2}/g) || [];
-    
+
+    // Split hex string into hops of pathHashSize bytes (2 chars per byte)
+    const bytesPerHop = pathHashSize * 2;
+    const hops: string[] = [];
+    for (let i = 0; i < path.length; i += bytesPerHop) {
+      hops.push(path.slice(i, i + bytesPerHop));
+    }
+
     return (
       <div className="flex flex-wrap gap-2 items-center mt-2">
         {hops.map((hop, index) => (
@@ -58,7 +62,7 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
 
       {/* Content Scrollable */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        
+
         {/* Meta Info */}
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700">
@@ -153,11 +157,11 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
              <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
                <div className="flex justify-between text-xs text-slate-500 mb-2">
                  <span>Type: {packet.packet.route_type_name}</span>
-                 <span>Hops: {packet.routing.path_len}</span>
+                 <span>Hops: {packet.routing.path_len} × {packet.routing.path_hash_size} bytes</span>
                </div>
-               
+
                {/* Visual Chain */}
-               {renderPathChain(packet.routing.path)}
+               {renderPathChain(packet.routing.path, packet.routing.path_hash_size)}
 
                <div className="mt-4 font-mono text-[10px] text-slate-500 break-all bg-black/20 p-2 rounded">
                  Raw: {packet.routing.path}
@@ -172,7 +176,7 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
                 <Hash className="w-4 h-4 text-slate-400" />
                 Raw Packet
             </h3>
-            <button 
+            <button
               onClick={() => copyToClipboard(packet.raw_packet.hex)}
               className="p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-white"
               title="Copy Hex"
