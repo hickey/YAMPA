@@ -66,8 +66,20 @@ MQTT_PASSWORD=pass
 MQTT_TOPIC=meshcore/+/+/packets       # default value
 ```
 
+It should be noted that if the protocol used to access the YAMPA application
+uses TLS, then the connection to the MQTT server needs to also use TLS.
+This is a requirement enforced by TypeScript. If you attempt to mix TLS
+connections with non-TLS connections, then the MQTT connection will be
+denied by TypeScript and the MQTT connection will never succeed. If you
+are having troubles with the MQTT connection check the JavaScript console
+for error messages.
+
 The topic is set to receive packets sent with `meshcoretomqtt` script.
 `meshcoretomqtt` can be found at https://github.com/Cisien/meshcoretomqtt.
+Using the default topic pattern will allow packets to be read from all
+regions and all observers. If you desire to restrict what YAMPA can read,
+the first `+` represents the region code and the second `+` is the public
+key of each observer that is logging to the MQTT server.
 
 ## Frontend
 
