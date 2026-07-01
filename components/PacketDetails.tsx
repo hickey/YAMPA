@@ -129,8 +129,19 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
               ) : packet.decoded.advert ? (
                  <div className="space-y-2">
                     <div>
-                      <span className="text-slate-500">Node:</span> <span className="text-blue-400">{packet.decoded.advert.appdata.node_name}</span>
+                      <span className="text-slate-500">Node:</span> <span className="text-blue-400">{packet.decoded.advert.appdata.node_name || '—'}</span>
                     </div>
+                    {packet.decoded.advert.pub_key && (
+                      <div>
+                        <span className="text-slate-500">Public Key:</span>{' '}
+                        <span className="font-mono text-xs text-purple-300">{packet.decoded.advert.pub_key}</span>
+                      </div>
+                    )}
+                    {packet.decoded.advert.device_role && (
+                      <div>
+                        <span className="text-slate-500">Role:</span> <span className="text-yellow-400">{packet.decoded.advert.device_role}</span>
+                      </div>
+                    )}
                     {packet.decoded.advert.appdata.latitude && (
                       <div>
                         <span className="text-slate-500">Position:</span> <span className="text-yellow-400">

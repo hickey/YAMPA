@@ -169,6 +169,9 @@ export class PacketDecoder {
         result.advert = {
           pub_key: payload.publicKey || '',
           timestamp: payload.timestamp || 0,
+          device_role: payload.appData?.deviceRole != null
+            ? Utils.getDeviceRoleName(payload.appData.deviceRole)
+            : '',
           appdata: {
             flags: payload.appData?.flags || 0,
             latitude: payload.appData?.location?.latitude,

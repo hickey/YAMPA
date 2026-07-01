@@ -31,6 +31,7 @@ export interface PacketPayload {
 export interface DecodedAdvert {
   pub_key: string;
   timestamp: number;
+  device_role: string;
   appdata: {
     flags: number;
     latitude?: number;
