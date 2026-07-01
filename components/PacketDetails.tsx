@@ -53,7 +53,7 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
       <div className="flex-none flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800">
         <div>
           <h2 className="text-lg font-semibold text-white">Packet Details</h2>
-          <div className="text-xs font-mono text-slate-400">{packet.packet.payload_type_name} • ID: {packet.packet.crc.toString(16).toUpperCase()}</div>
+          <div className="text-xs font-mono text-slate-400">{packet.packet.payload_type_name} • ID: {packet.hash.toUpperCase()}</div>
         </div>
         <button onClick={onClose} className="p-1 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white">
           <X className="w-5 h-5" />

@@ -66,6 +66,7 @@ export interface Decoded {
 
 export interface Packet {
   ts: number;
+  hash: string;
   raw_packet: RawPacket;
   packet: PacketHeader;
   radio: RadioStats;

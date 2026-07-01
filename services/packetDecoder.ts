@@ -96,6 +96,7 @@ export class PacketDecoder {
       // Transform the decoded data to match our Packet interface
       return {
         ts,
+        hash: decoded.messageHash,
         raw_packet: raw_packet,
         packet: {
           header: this.calculateHeader(decoded.routeType, decoded.payloadType, decoded.payloadVersion),
@@ -127,6 +128,7 @@ export class PacketDecoder {
       // Return a basic packet structure if decoding fails
       return {
         ts,
+        hash: '',
         raw_packet: raw_packet,
         packet: {
           header: 0,
