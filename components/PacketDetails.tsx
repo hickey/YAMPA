@@ -16,11 +16,15 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
   };
 
   // Helper to visualize path bytes
-  const renderPathChain = (path: string) => {
+  const renderPathChain = (path: string, pathHashSize: number) => {
     if (!path) return <span className="text-slate-500 italic">No routing path</span>;
 
-    // Split hex string into bytes (2 chars)
-    const hops = path.match(/.{1,2}/g) || [];
+    // Split hex string into hops of pathHashSize bytes (2 chars per byte)
+    const bytesPerHop = pathHashSize * 2;
+    const hops: string[] = [];
+    for (let i = 0; i < path.length; i += bytesPerHop) {
+      hops.push(path.slice(i, i + bytesPerHop));
+    }
 
     return (
       <div className="flex flex-wrap gap-2 items-center mt-2">
@@ -153,11 +157,11 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
              <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
                <div className="flex justify-between text-xs text-slate-500 mb-2">
                  <span>Type: {packet.packet.route_type_name}</span>
-                 <span>Hops: {packet.routing.path_len}</span>
+                 <span>Hops: {packet.routing.path_len} × {packet.routing.path_hash_size} bytes</span>
                </div>
 
                {/* Visual Chain */}
-               {renderPathChain(packet.routing.path)}
+               {renderPathChain(packet.routing.path, packet.routing.path_hash_size)}
 
                <div className="mt-4 font-mono text-[10px] text-slate-500 break-all bg-black/20 p-2 rounded">
                  Raw: {packet.routing.path}

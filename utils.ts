@@ -1,9 +1,13 @@
 import { Packet, DiscoveredNode } from './types';
 
-export const formatPath = (path: string): string => {
+export const formatPath = (path: string, pathHashSize: number = 1): string => {
   if (!path) return '';
-  // Split into 2-character chunks (bytes)
-  return path.match(/.{1,2}/g)?.join(' → ') || path;
+  const bytesPerHop = pathHashSize * 2;
+  const hops: string[] = [];
+  for (let i = 0; i < path.length; i += bytesPerHop) {
+    hops.push(path.slice(i, i + bytesPerHop));
+  }
+  return hops.join(' → ');
 };
 
 export const extractNodeFromPacket = (packet: Packet): Partial<DiscoveredNode> | null => {

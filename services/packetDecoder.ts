@@ -113,6 +113,7 @@ export class PacketDecoder {
         },
         routing: {
           path_len: decoded.pathLength || 0,
+          path_hash_size: decoded.pathHashSize || 1,
           path: (decoded.pathLength > 0 && decoded.path) ? decoded.path.join('') : '',
         },
         payload: {

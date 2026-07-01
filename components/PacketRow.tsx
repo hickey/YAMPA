@@ -63,7 +63,7 @@ export const PacketRow: React.FC<PacketRowProps> = ({ packet, onClick, isSelecte
        return <span className="text-slate-500 font-mono text-xs">{packet.payload.hex.substring(0, 16)}...</span>
     }
     // Updated to use formatPath
-    return <span className="text-slate-500 font-mono text-xs" title={formatPath(packet.routing.path)}>{formatPath(packet.routing.path)}</span>;
+    return <span className="text-slate-500 font-mono text-xs" title={formatPath(packet.routing.path, packet.routing.path_hash_size)}>{formatPath(packet.routing.path, packet.routing.path_hash_size)}</span>;
   };
 
   return (

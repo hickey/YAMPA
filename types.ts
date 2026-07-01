@@ -20,6 +20,7 @@ export interface RadioStats {
 
 export interface RoutingInfo {
   path_len: number;
+  path_hash_size: number;
   path: string;
 }
 
