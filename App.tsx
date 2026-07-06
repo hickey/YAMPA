@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Packet, DiscoveredNode } from './types';
+import { Packet, DiscoveredNode, RoutingInfo } from './types';
 import { StreamService, ConnectionStatus, ConnectionMode } from './services/streamService';
 import { PacketList } from './components/PacketList';
 import { PacketDetails } from './components/PacketDetails';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
   const [selectedPacket, setSelectedPacket] = useState<Packet | null>(null);
+  const [extraRoutes, setExtraRoutes] = useState<Map<string, RoutingInfo[]>>(new Map());
   const [isPaused, setIsPaused] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [isSimulation, setIsSimulation] = useState(false);
@@ -45,8 +46,21 @@ const App: React.FC = () => {
 
     // Subscribe to Data
     const unsubscribeData = streamServiceRef.current.subscribe((packet) => {
-      // 1. Packet Management
+      // 1. Packet Management — deduplicate by hash, track extra routes for later display
       setPackets((prev) => {
+        const existing = prev.find(p => p.hash === packet.hash);
+        if (existing) {
+          // Same packet ID received via a different route — store the alternate routing path
+          setExtraRoutes(prevRoutes => {
+            const next = new Map(prevRoutes);
+            const key = packet.hash;
+            const existing: RoutingInfo[] = next.get(key) ?? [];
+            const dup = existing.some(r => r.path === packet.routing.path);
+            if (!dup) next.set(key, [...existing, packet.routing]);
+            return next;
+          });
+          return prev;
+        }
         const newPackets = [packet, ...prev];
         if (newPackets.length > 500) return newPackets.slice(0, 500);
         return newPackets;
@@ -138,6 +152,7 @@ const App: React.FC = () => {
     setTotalPacketCount(0);
     setSelectedPacket(null);
     setNodes(new Map());
+    setExtraRoutes(new Map());
     // We don't necessarily clear channels derived from packets since packets are cleared
   };
 
@@ -443,6 +458,7 @@ const App: React.FC = () => {
             {showPacketDetails && selectedPacket ? (
               <PacketDetails
                 packet={selectedPacket}
+                extraRoutes={extraRoutes.get(selectedPacket.hash)}
                 onClose={() => setSelectedPacket(null)}
               />
             ) : showNodeDetails && selectedNodeId ? (

@@ -1,14 +1,15 @@
 import React from 'react';
-import { Packet } from '../types';
+import { Packet, RoutingInfo } from '../types';
 import { X, Copy, Radio, Route, Database, Lock, Unlock, Clock, Hash, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PacketDetailsProps {
   packet: Packet;
+  extraRoutes?: RoutingInfo[];
   onClose: () => void;
 }
 
-export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose }) => {
+export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, extraRoutes, onClose }) => {
   const date = new Date(packet.ts * 1000);
 
   const copyToClipboard = (text: string) => {
@@ -164,6 +165,11 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Route className="w-4 h-4 text-purple-400" />
               Routing
+              {extraRoutes && extraRoutes.length > 0 && (
+                <span className="text-xs font-normal text-slate-400">
+                  ({extraRoutes.length + 1} routes)
+                </span>
+              )}
             </h3>
              <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
                <div className="flex justify-between text-xs text-slate-500 mb-2">
@@ -171,11 +177,23 @@ export const PacketDetails: React.FC<PacketDetailsProps> = ({ packet, onClose })
                  <span>Hops: {packet.routing.path_len} × {packet.routing.path_hash_size} bytes</span>
                </div>
 
-               {/* Visual Chain */}
+               {/* Primary route */}
+               <div className="text-xs text-slate-400 mb-1">Primary route</div>
                {renderPathChain(packet.routing.path, packet.routing.path_hash_size)}
 
+               {/* Alternate routes */}
+               {extraRoutes && extraRoutes.map((route, i) => (
+                 <div key={i} className="mt-4">
+                   <div className="text-xs text-slate-400 mb-1">Alternate route {i + 1}</div>
+                   {renderPathChain(route.path, route.path_hash_size)}
+                 </div>
+               ))}
+
                <div className="mt-4 font-mono text-[10px] text-slate-500 break-all bg-black/20 p-2 rounded">
-                 Raw: {packet.routing.path}
+                 Primary: {packet.routing.path}
+                 {extraRoutes && extraRoutes.map((route, i) => (
+                   <span key={i}>{'\n'}Alt {i + 1}: {route.path}</span>
+                 ))}
                </div>
              </div>
         </div>
