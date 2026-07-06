@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Packet, DiscoveredNode } from './types';
-import { StreamService, ConnectionStatus } from './services/streamService';
+import { Packet, DiscoveredNode, RoutingInfo } from './types';
+import { StreamService, ConnectionStatus, ConnectionMode } from './services/streamService';
 import { PacketList } from './components/PacketList';
 import { PacketDetails } from './components/PacketDetails';
 import { NodeList } from './components/NodeList';
@@ -16,7 +16,7 @@ type ViewMode = 'analyzer' | 'channels' | 'map';
 const App: React.FC = () => {
   const [packets, setPackets] = useState<Packet[]>([]);
   const [totalPacketCount, setTotalPacketCount] = useState(0);
-  
+
   // View State
   const [viewMode, setViewMode] = useState<ViewMode>('analyzer');
 
@@ -28,20 +28,34 @@ const App: React.FC = () => {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
   const [selectedPacket, setSelectedPacket] = useState<Packet | null>(null);
+  const [extraRoutes, setExtraRoutes] = useState<Map<string, RoutingInfo[]>>(new Map());
   const [isPaused, setIsPaused] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [isSimulation, setIsSimulation] = useState(false);
-  
+
   const streamServiceRef = useRef<StreamService | null>(null);
 
   useEffect(() => {
     // Initialize stream service
     streamServiceRef.current = new StreamService();
-    
+
     // Subscribe to Data
     const unsubscribeData = streamServiceRef.current.subscribe((packet) => {
-      // 1. Packet Management
+      // 1. Packet Management — deduplicate by hash, track extra routes for later display
       setPackets((prev) => {
+        const existing = prev.find(p => p.hash === packet.hash);
+        if (existing) {
+          // Same packet ID received via a different route — store the alternate routing path
+          setExtraRoutes(prevRoutes => {
+            const next = new Map(prevRoutes);
+            const key = packet.hash;
+            const existing: RoutingInfo[] = next.get(key) ?? [];
+            const dup = existing.some(r => r.path === packet.routing.path);
+            if (!dup) next.set(key, [...existing, packet.routing]);
+            return next;
+          });
+          return prev;
+        }
         const newPackets = [packet, ...prev];
         if (newPackets.length > 500) return newPackets.slice(0, 500);
         return newPackets;
@@ -54,7 +68,7 @@ const App: React.FC = () => {
         setNodes((prevNodes) => {
           const newMap = new Map(prevNodes);
           const existing: DiscoveredNode | undefined = newMap.get(nodeInfo.id!);
-          
+
           newMap.set(nodeInfo.id!, {
             id: nodeInfo.id!,
             name: nodeInfo.name!,
@@ -104,7 +118,7 @@ const App: React.FC = () => {
           setIsSimulation(newMode);
           streamServiceRef.current.setSimulationMode(newMode);
           // Reset paused state when switching modes usually feels better
-          setIsPaused(false); 
+          setIsPaused(false);
           streamServiceRef.current.resume();
       }
   };
@@ -113,7 +127,8 @@ const App: React.FC = () => {
     setPackets([]);
     setTotalPacketCount(0);
     setSelectedPacket(null);
-    setNodes(new Map()); 
+    setNodes(new Map());
+    setExtraRoutes(new Map());
     // We don't necessarily clear channels derived from packets since packets are cleared
   };
 
@@ -140,17 +155,17 @@ const App: React.FC = () => {
           const info = p.decoded.group_text;
           const id = info.channel_name;
           const name = info.channel_name;
-          
+
           if (!channelMap.has(id)) {
-              channelMap.set(id, { 
-                  id, 
-                  name, 
-                  count: 0, 
-                  lastActivity: 0, 
-                  isEncrypted: false 
+              channelMap.set(id, {
+                  id,
+                  name,
+                  count: 0,
+                  lastActivity: 0,
+                  isEncrypted: false
               });
           }
-          
+
           const ch = channelMap.get(id)!;
           ch.count++;
           ch.lastActivity = Math.max(ch.lastActivity, p.ts);
@@ -161,9 +176,9 @@ const App: React.FC = () => {
   }, [packets]);
 
   // 2. Filtered Packets for Analyzer
-  const filteredPacketsAnalyzer = selectedNodeId 
+  const filteredPacketsAnalyzer = selectedNodeId
     ? packets.filter(p => {
-        return (p.decoded.group_text?.sender_name === selectedNodeId) || 
+        return (p.decoded.group_text?.sender_name === selectedNodeId) ||
                (p.decoded.advert?.appdata.node_name === selectedNodeId);
       })
     : packets;
@@ -190,7 +205,7 @@ const App: React.FC = () => {
   const getStatusIndicator = () => {
       if (isPaused) return { color: 'bg-yellow-500', text: 'Paused' };
       if (isSimulation) return { color: 'bg-purple-500', text: 'Simulation' };
-      
+
       switch (connectionStatus) {
           case 'connected': return { color: 'bg-green-500 animate-pulse', text: 'Live' };
           case 'connecting': return { color: 'bg-yellow-500', text: 'Connecting...' };
@@ -220,21 +235,21 @@ const App: React.FC = () => {
 
           {/* View Switcher */}
           <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700">
-             <button 
+             <button
                 onClick={() => setViewMode('analyzer')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'analyzer' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
              >
                 <Activity className="w-4 h-4" />
                 Packets
              </button>
-             <button 
+             <button
                 onClick={() => setViewMode('channels')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'channels' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
              >
                 <MessageCircle className="w-4 h-4" />
                 Channels
              </button>
-             <button 
+             <button
                 onClick={() => setViewMode('map')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'map' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
              >
@@ -263,14 +278,14 @@ const App: React.FC = () => {
         {/* Right Controls */}
         <div className="flex items-center gap-4 w-auto shrink-0 justify-end">
           <div className="flex gap-2">
-            
+
             {/* Simulation Toggle */}
             <button
               onClick={toggleSimulation}
               className={`
                 flex items-center gap-2 px-3 py-2 rounded-md transition-all border
-                ${isSimulation 
-                    ? 'bg-purple-900/30 border-purple-500/50 text-purple-300 hover:bg-purple-900/50' 
+                ${isSimulation
+                    ? 'bg-purple-900/30 border-purple-500/50 text-purple-300 hover:bg-purple-900/50'
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'
                 }
               `}
@@ -282,14 +297,14 @@ const App: React.FC = () => {
 
             <div className="w-px h-8 bg-slate-700 mx-2"></div>
 
-            <button 
+            <button
               onClick={togglePause}
               className={`p-2 rounded-md transition-colors ${isPaused ? 'bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}
               title={isPaused ? "Resume Stream" : "Pause Stream"}
             >
               {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
             </button>
-            <button 
+            <button
               onClick={clearPackets}
               className="p-2 bg-slate-700 hover:bg-red-900/30 hover:text-red-400 text-slate-200 rounded-md transition-colors"
               title="Clear Buffer"
@@ -302,14 +317,14 @@ const App: React.FC = () => {
 
       {/* Main Content Grid */}
       <div className="flex-1 flex overflow-hidden relative">
-        
+
         {/* Column 1: Left Sidebar (Context sensitive) */}
         <div className="w-64 flex-none border-r border-slate-700 hidden md:flex flex-col bg-slate-900">
            {viewMode === 'analyzer' || viewMode === 'map' ? (
-               <NodeList 
-                 nodes={Array.from(nodes.values())} 
-                 selectedNodeId={selectedNodeId} 
-                 onSelectNode={handleNodeSelect} 
+               <NodeList
+                 nodes={Array.from(nodes.values())}
+                 selectedNodeId={selectedNodeId}
+                 onSelectNode={handleNodeSelect}
                />
            ) : (
                <ChannelList
@@ -322,7 +337,7 @@ const App: React.FC = () => {
 
         {/* Column 2: Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-slate-900/50 relative">
-          
+
           {viewMode === 'analyzer' && (
             <>
               {selectedNodeId && (
@@ -332,9 +347,9 @@ const App: React.FC = () => {
                 </div>
               )}
               <div className="flex-1 relative min-h-0">
-                <PacketList 
-                  packets={filteredPacketsAnalyzer} 
-                  onSelect={handlePacketSelect} 
+                <PacketList
+                  packets={filteredPacketsAnalyzer}
+                  onSelect={handlePacketSelect}
                   selectedId={selectedPacket?.ts}
                 />
               </div>
@@ -343,7 +358,7 @@ const App: React.FC = () => {
 
           {viewMode === 'channels' && (
               selectedChannelId ? (
-                <ChannelChat 
+                <ChannelChat
                     packets={filteredPacketsChannel}
                     onSelectPacket={handlePacketSelect}
                     channelName={channels.find(c => c.id === selectedChannelId)?.name || selectedChannelId}
@@ -357,7 +372,7 @@ const App: React.FC = () => {
           )}
 
           {viewMode === 'map' && (
-             <NodeMap 
+             <NodeMap
                 nodes={Array.from(nodes.values())}
                 selectedNodeId={selectedNodeId}
                 onSelectNode={(id) => {
@@ -370,7 +385,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Column 3: Details Panel */}
-        <div 
+        <div
           className={`
             flex-none bg-slate-800 flex flex-col transition-all duration-300 ease-in-out overflow-hidden
             ${isDetailsVisible ? 'w-[400px] border-l border-slate-700' : 'w-0 border-l-0'}
@@ -378,14 +393,15 @@ const App: React.FC = () => {
         >
           <div className="w-[400px] h-full flex flex-col">
             {showPacketDetails && selectedPacket ? (
-              <PacketDetails 
-                packet={selectedPacket} 
-                onClose={() => setSelectedPacket(null)} 
+              <PacketDetails
+                packet={selectedPacket}
+                extraRoutes={extraRoutes.get(selectedPacket.hash)}
+                onClose={() => setSelectedPacket(null)}
               />
             ) : showNodeDetails && selectedNodeId ? (
-               <NodeDetails 
-                  node={nodes.get(selectedNodeId)!} 
-                  packets={filteredPacketsAnalyzer} 
+               <NodeDetails
+                  node={nodes.get(selectedNodeId)!}
+                  packets={filteredPacketsAnalyzer}
                   onClose={() => setSelectedNodeId(null)}
                />
             ) : null}
